@@ -48,13 +48,7 @@ logger.addHandler(file_handler)
 def check_tokens():
     """Проверяет доступность переменных окружения."""
     venv_variables = (PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)
-    for venv_variable in venv_variables:
-        if not(venv_variable):
-            logging.critical(
-                f'''Отсутствует обязательная
-                переменная окружения: {venv_variable}'''
-            )
-            raise VenvVariableException
+    return all(venv_variables)
 
 
 def send_message(bot, message):
@@ -63,9 +57,8 @@ def send_message(bot, message):
     экземпляр класса Bot и строку с текстом сообщения.
     """
     try:
-        new_message = bot.send_message(TELEGRAM_CHAT_ID, message)
+        bot.send_message(TELEGRAM_CHAT_ID, message)
         logging.debug('Сообщение успешно доставлено')
-        return new_message
     except Exception as error:
         logging.error(f'Сбой при отправке сообщения в Telegram: {error}')
 
@@ -86,7 +79,12 @@ def get_api_answer(timestamp):
     except Exception as error:
         logging.error(f'Сбой при запросе к сервису Практикум.Домашка: {error}')
     if homework_statuses.status_code != HTTPStatus.OK:
-        logging.error('Нет доступа к сервису Практикум.Домашка')
+        logging.error(
+            f'''Нет доступа к сервису Практикум.Домашка.
+            Код ответа: {homework_statuses.status_code}.
+            Параметр запроса "timestamp": {timestamp}.
+            Контент ответа: {homework_statuses.text}.'''
+        )
         raise PracticumHomeworkUnavailable
     return homework_statuses.json()
 
@@ -122,7 +120,11 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
-    check_tokens()
+    if not check_tokens():
+        logging.critical(
+            '''Отсутствует обязательная переменная окружения'''
+        )
+        raise VenvVariableException
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
@@ -142,6 +144,7 @@ def main():
             if message != past_message:
                 send_message(bot, message)
                 past_message = message
+        timestamp = response['current_date']
         time.sleep(RETRY_PERIOD)
 
 
