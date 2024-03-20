@@ -1,29 +1,18 @@
-import telegram
-import telegram.ext
-
-import requests
-
-from http import HTTPStatus
-
-import time
-
+import logging
 import os
-
+import time
+from http import HTTPStatus
 from sys import stdout
 
-import logging
-
-from exceptions import (VenvVariableException,
-                        PracticumHomeworkUnavailable,
-                        ResponseHaventExpectedKeys,
-                        UnexpectedStatusHomework)
-
-from constants import (LAST_WORK,
-                       RETRY_PERIOD,
-                       ENDPOINT,
-                       HOMEWORK_VERDICTS)
-
+import requests
+import telegram
+import telegram.ext
 from dotenv import load_dotenv
+
+from constants import ENDPOINT, HOMEWORK_VERDICTS, LAST_WORK, RETRY_PERIOD
+from exceptions import (PracticumHomeworkUnavailable,
+                        ResponseHaventExpectedKeys, UnexpectedStatusHomework,
+                        VenvVariableException)
 
 load_dotenv()
 
@@ -58,6 +47,9 @@ def send_message(bot, message):
     """
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
+        # В предыдущей итерации пытался использовать info,
+        # т.к. по описанию в теории info подходит больше.
+        # Но pytest требует уровень debug.
         logging.debug('Сообщение успешно доставлено')
     except Exception as error:
         logging.error(f'Сбой при отправке сообщения в Telegram: {error}')
@@ -144,8 +136,9 @@ def main():
             if message != past_message:
                 send_message(bot, message)
                 past_message = message
-        timestamp = response['current_date']
-        time.sleep(RETRY_PERIOD)
+        finally:
+            timestamp = response['current_date']
+            time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
